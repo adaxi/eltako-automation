@@ -21,6 +21,7 @@ async function main () {
   }
 
   process.on('SIGINT', exit)
+  process.on('SIGTERM', exit)
 }
 
 
