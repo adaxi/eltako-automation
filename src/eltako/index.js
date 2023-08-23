@@ -1,5 +1,8 @@
 'use strict'
 
+// https://roelofjanelsinga.com/articles/how-to-create-switch-dashboard-home-assistant/
+// https://cedalo.com/blog/mosquitto-docker-configuration-ultimate-guide/
+
 import { SerialPort } from 'serialport'
 import { DelimiterParser } from '@serialport/parser-delimiter'
 import Mqtt from 'mqtt'
@@ -28,7 +31,7 @@ export const plugin = {
       }
     }
 
-    const handleIncomingPacket = (packet) => {
+    const handleIncomingPacket = async (packet) => {
       try {
         assertChecksum(packet)
         assertDataPacket(packet)
@@ -38,20 +41,64 @@ export const plugin = {
         if (actuator.on !== on) {
           actuator.on = on
           server.log(['info'], `Actuator ${actuator.index} ${actuator.label.padEnd(20)} => ${on ? 'on ' : 'off'}`)
+          if (mqttClient) {
+            server.log(['info'], `publishing on: eltako/${actuator.label}/get`)
+            await mqttClient.publishAsync(`eltako/${actuator.label}/get`, on ? '1': '0')
+          }
         }
       } catch (err) {
         server.log(['trace', 'incoming-packet'], err.toString())
       }
     }
 
+    const sendAction = (actuator) => {
+      if (!actuator.buttonAddress) {
+        throw Boom.badImplementation('Actuator not configured: missing buttonAddress.')
+      }
+      if (!actuator.buttonKey) {
+        throw Boom.badImplementation('Actuator not configured: missing buttonKey.')
+      }
+      const action = buildAction(actuator.buttonAddress, actuator.buttonKey)
+      outgoingActionQueue.push(action)
+    }
+
     server.ext([
       {
-        type: 'onPreStart',
+        type: 'onPostStart',
         method: async () => {
           serialPort = new SerialPort({
             path: options.tty,
             baudRate: options.baudRate
           })
+
+          const parser = serialPort.pipe(new DelimiterParser({ delimiter: SYNC, includeDelimiter: false }))
+          parser.on('data', (packet) => {
+            handleIncomingPacket(packet)
+            handleOutgoingQueue()
+          })
+
+          try {
+            mqttClient = await Mqtt.connectAsync(options.mqttUrl)
+              
+            for (const actuator of actuators) {
+              await mqttClient.subscribeAsync(`eltako/${actuator.label}/set`)
+            }
+              
+            mqttClient.on("message", (topic, message) => {
+              console.log(topic, message.toString('utf-8'))
+              const payload = message.toString('utf-8')
+              const [,label] = topic.split('/')
+              const actuator = actuators.find(actuator => actuator.label === label)
+              if (actuator) {
+                if ((actuator.on && payload === '0') || (!actuator.on && payload === '1')) {
+                  sendAction(actuator)
+                }
+              }
+            })
+          } catch (err) {
+            console.log(err)
+            server.log(['error'], `Failed to connect to mqtt broker ${options.mqttUrl}`)
+          }
         }
       },
       {
@@ -75,12 +122,6 @@ export const plugin = {
       }
     ])
 
-    const parser = serialPort.pipe(new DelimiterParser({ delimiter: SYNC, includeDelimiter: false }))
-    parser.on('data', (packet) => {
-      handleIncomingPacket(packet)
-      handleOutgoingQueue()
-    })
-
     server.route({
       path: '/actuators',
       method: 'GET',
@@ -90,22 +131,31 @@ export const plugin = {
     })
 
     server.route({
-      path: '/actuators/{index}/toggle',
+      path: '/actuators/{label}/toggle',
       method: 'POST',
       handler (request, h) {
-        const { index } = request.params
-        const actuator = actuators.find(actuator => actuator.index === index)
+        const { label } = request.params
+        const actuator = actuators.find(actuator => actuator.label === label)
         if (!actuator) {
           throw Boom.notFound('No actuator found at that index')
         }
-        if (!actuator.buttonAddress) {
-          throw Boom.badImplementation('Actuator not configured: missing buttonAddress.')
+        sendAction(actuator)
+        return h.response().code(204)
+      }
+    })
+
+    server.route({
+      path: '/actuators/{label}/set/{state}',
+      method: 'POST',
+      handler (request, h) {
+        const { label, state } = request.params
+        const actuator = actuators.find(actuator => actuator.label === label)
+        if (!actuator) {
+          throw Boom.notFound('No actuator found at that index')
         }
-        if (!actuator.buttonKey) {
-          throw Boom.badImplementation('Actuator not configured: missing buttonKey.')
+        if ((actuator.on && state === '0') || (!actuator.on && state === '1')) {
+          sendAction(actuator)
         }
-        const action = buildAction(actuator.buttonAddress, actuator.buttonKey)
-        outgoingActionQueue.push(action)
         return h.response().code(204)
       }
     })

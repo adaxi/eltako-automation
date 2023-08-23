@@ -69,7 +69,7 @@ const actuators = [
   },
   {
     index: '0000000c',
-    label: 'chambres_amis',
+    label: 'chambre_amis',
     buttonAddress: '00001012',
     buttonKey: '70000000'
   },
@@ -159,6 +159,10 @@ export default async function () {
               $env: 'ELTAKO_ACTUATORS',
               $default: actuators,
               $coerce: 'object'
+            },
+            mqttUrl: {
+              $env: 'ELTAKO_MQTT_URL',
+              $default: "mqtt://localhost:1883"
             }
           }
         }
