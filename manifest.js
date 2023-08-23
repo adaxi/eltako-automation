@@ -1,5 +1,7 @@
 import Confidence from '@hapipal/confidence'
 
+import 'dotenv/config'
+
 const actuators = [
   {
     index: '00000001',
