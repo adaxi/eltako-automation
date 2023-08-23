@@ -9,4 +9,10 @@ This project connects to the serial port exposed by FAM14.
 
 This project allows to toggle the state of a light, it also allows to read the state of the light.
 
-THis project is based on the work of [luchermans](https://github.com/luchermans/el-tako_home).
+This project is based on the work of [luchermans](https://github.com/luchermans/el-tako_home).
+
+Docker
+------
+
+A docker image is available at `ghcr.io/adaxi/eltako-automation:main`
+
