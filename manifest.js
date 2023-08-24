@@ -153,7 +153,7 @@ export default async function () {
               $default: '/dev/ttyUSB1'
             },
             baudRate: {
-              $env: 'ELTAKO_TTY_PATH',
+              $env: 'ELTAKO_TTY_BAUD_RATE',
               $default: 57600,
               $coerce: 'number'
             },
