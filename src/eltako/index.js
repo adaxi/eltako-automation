@@ -10,8 +10,8 @@ import Boom from '@hapi/boom'
 
 const SYNC = Buffer.from([0xA5, 0x5A])
 
-function capitalize (string) {
-  return string.charAt(0).toUpperCase() + string.slice(1)
+function capitalize (s) {
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 export const plugin = {
@@ -131,6 +131,12 @@ export const plugin = {
       method: 'POST',
       async handler (request, h) {
         for (const actuator of actuators) {
+          request.log(['info'], `Publishing discovery configuration of '${actuator.label}'`)
+
+          if (actuator.label === '_' || !actuator.label) {
+            continue
+          }
+
           await mqttClient.publishAsync(`discovery/switch/${actuator.label}`, JSON.stringify({
             unique_id: actuator.label,
             name: capitalize(actuator.label).replaceAll('_', ' '),
