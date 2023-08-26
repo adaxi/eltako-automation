@@ -164,7 +164,7 @@ export default async function () {
             },
             mqttUrl: {
               $env: 'ELTAKO_MQTT_URL',
-              $default: "mqtt://localhost:1883"
+              $default: 'mqtt://localhost:1883'
             }
           }
         }

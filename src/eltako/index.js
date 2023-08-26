@@ -10,6 +10,10 @@ import Boom from '@hapi/boom'
 
 const SYNC = Buffer.from([0xA5, 0x5A])
 
+function capitalize (string) {
+  return string.charAt(0).toUpperCase() + string.slice(1)
+}
+
 export const plugin = {
   name: 'eltako',
   version: '1.0.0',
@@ -43,7 +47,7 @@ export const plugin = {
           server.log(['info'], `Actuator ${actuator.index} ${actuator.label.padEnd(20)} => ${on ? 'on ' : 'off'}`)
           if (mqttClient) {
             server.log(['info'], `publishing on: eltako/${actuator.label}/get`)
-            await mqttClient.publishAsync(`eltako/${actuator.label}/get`, on ? '1': '0')
+            await mqttClient.publishAsync(`eltako/${actuator.label}/get`, on ? '1' : '0')
           }
         }
       } catch (err) {
@@ -79,15 +83,15 @@ export const plugin = {
 
           try {
             mqttClient = await Mqtt.connectAsync(options.mqttUrl)
-              
+
             for (const actuator of actuators) {
               await mqttClient.subscribeAsync(`eltako/${actuator.label}/set`)
             }
-              
-            mqttClient.on("message", (topic, message) => {
+
+            mqttClient.on('message', (topic, message) => {
               console.log(topic, message.toString('utf-8'))
               const payload = message.toString('utf-8')
-              const [,label] = topic.split('/')
+              const [, label] = topic.split('/')
               const actuator = actuators.find(actuator => actuator.label === label)
               if (actuator) {
                 if ((actuator.on && payload === '0') || (!actuator.on && payload === '1')) {
@@ -121,6 +125,29 @@ export const plugin = {
         }
       }
     ])
+
+    server.route({
+      path: '/publish-home-assistant',
+      method: 'POST',
+      async handler (request, h) {
+        for (const actuator of actuators) {
+          await mqttClient.publishAsync(`discovery/switch/${actuator.label}`, JSON.stringify({
+            unique_id: actuator.label,
+            name: capitalize(actuator.label).replaceAll('_', ' '),
+            state_topic: `eltako/${actuator.label}/get`,
+            command_topic: `eltako/${actuator.label}/set`,
+            payload_on: '1',
+            payload_off: '0',
+            state_on: '1',
+            state_off: '0',
+            optimistic: false,
+            qos: 0,
+            retain: true
+          }))
+        }
+        return h.response().code(204)
+      }
+    })
 
     server.route({
       path: '/actuators',
@@ -212,4 +239,3 @@ const buildPacket = (data = Buffer.from([0x00, 0x00, 0x00, 0x00]), address = Buf
 const isOn = (data) => {
   return (data || '00').slice(0, 2) === '70'
 }
-
