@@ -131,11 +131,12 @@ export const plugin = {
       method: 'POST',
       async handler (request, h) {
         for (const actuator of actuators) {
-          request.log(['info'], `Publishing discovery configuration of '${actuator.label}'`)
 
           if (actuator.label === '_' || !actuator.label) {
             continue
           }
+
+          request.log(['info'], `Publishing discovery configuration of '${actuator.label}'`)
 
           await mqttClient.publishAsync(`discovery/switch/${actuator.label}`, JSON.stringify({
             unique_id: actuator.label,
