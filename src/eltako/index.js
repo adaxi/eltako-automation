@@ -138,7 +138,7 @@ export const plugin = {
 
           request.log(['info'], `Publishing discovery configuration of '${actuator.label}'`)
 
-          await mqttClient.publishAsync(`discovery/switch/${actuator.label}`, JSON.stringify({
+          await mqttClient.publishAsync(`homeassistant/switch/${actuator.label}/config`, JSON.stringify({
             unique_id: actuator.label,
             name: capitalize(actuator.label).replaceAll('_', ' '),
             state_topic: `eltako/${actuator.label}/get`,
