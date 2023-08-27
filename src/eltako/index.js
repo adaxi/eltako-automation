@@ -28,7 +28,7 @@ export const plugin = {
       if (outgoingActionQueue.length === 0) {
         return
       }
-      const actions = outgoingActionQueue.splice(1)
+      const actions = outgoingActionQueue.splice(0, 1)
       for (const action of actions) {
         serialPort.write(action)
       }
@@ -45,7 +45,7 @@ export const plugin = {
           actuator.on = on
           server.log(['info'], `Actuator ${actuator.index} ${actuator.label.padEnd(20)} => ${on ? 'on ' : 'off'}`)
           if (mqttClient) {
-            server.log(['info'], `publishing on: eltako/${actuator.label}/get`)
+            server.log(['info'], `Publishing: eltako/${actuator.label}/get => ${on ? '1' : '0'}`)
             await mqttClient.publishAsync(`eltako/${actuator.label}/get`, on ? '1' : '0')
           }
         }
