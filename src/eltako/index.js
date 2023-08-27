@@ -148,7 +148,7 @@ export const plugin = {
                     if (actuatorDesiredState !== actuator.on) {
                       sendAction(actuator)
                     }
-                  }, 150)
+                  }, 500)
                 }
               }
             })
