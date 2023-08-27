@@ -18,7 +18,7 @@ export const plugin = {
   name: 'eltako',
   version: '1.0.0',
   register: async (server, options) => {
-    let outgoingActionQueue = []
+    const outgoingActionQueue = []
     let serialPort
     let mqttClient
 
@@ -28,8 +28,7 @@ export const plugin = {
       if (outgoingActionQueue.length === 0) {
         return
       }
-      const actions = outgoingActionQueue
-      outgoingActionQueue = []
+      const actions = outgoingActionQueue.splice(1)
       for (const action of actions) {
         serialPort.write(action)
       }
@@ -66,6 +65,42 @@ export const plugin = {
       outgoingActionQueue.push(action)
     }
 
+    const provisionHomeAssistant = async () => {
+      for (const actuator of actuators) {
+        if (actuator.label === '_' || !actuator.label) {
+          continue
+        }
+
+        server.log(['info'], `Publishing discovery configuration of '${actuator.label}'`)
+
+        await mqttClient.publishAsync(`homeassistant/switch/${actuator.label}/config`, JSON.stringify({
+          unique_id: actuator.label,
+          name: capitalize(actuator.label).replaceAll('_', ' '),
+          state_topic: `eltako/${actuator.label}/get`,
+          command_topic: `eltako/${actuator.label}/set`,
+          payload_on: '1',
+          payload_off: '0',
+          state_on: '1',
+          state_off: '0',
+          optimistic: false,
+          qos: 0,
+          retain: true
+        }))
+      }
+    }
+
+    const publishStates = async () => {
+      for (const actuator of actuators) {
+        if (actuator.label === '_' || !actuator.label) {
+          continue
+        }
+
+        server.log(['info'], `Publishing discovery configuration of '${actuator.label}'`)
+
+        await mqttClient.publishAsync(`eltako/${actuator.label}/get`, actuator.on ? '1' : '0')
+      }
+    }
+
     server.ext([
       {
         type: 'onPostStart',
@@ -88,8 +123,20 @@ export const plugin = {
               await mqttClient.subscribeAsync(`eltako/${actuator.label}/set`)
             }
 
-            mqttClient.on('message', (topic, message) => {
+            await provisionHomeAssistant()
+            await publishStates()
+
+            mqttClient.on('message', async (topic, message) => {
               console.log(topic, message.toString('utf-8'))
+
+              if (topic === 'homeassistant/status') {
+                if (message === 'online') {
+                  await provisionHomeAssistant()
+                  await publishStates()
+                }
+                return
+              }
+
               const payload = message.toString('utf-8')
               const [, label] = topic.split('/')
               const actuator = actuators.find(actuator => actuator.label === label)
@@ -130,28 +177,7 @@ export const plugin = {
       path: '/publish-home-assistant',
       method: 'POST',
       async handler (request, h) {
-        for (const actuator of actuators) {
-
-          if (actuator.label === '_' || !actuator.label) {
-            continue
-          }
-
-          request.log(['info'], `Publishing discovery configuration of '${actuator.label}'`)
-
-          await mqttClient.publishAsync(`homeassistant/switch/${actuator.label}/config`, JSON.stringify({
-            unique_id: actuator.label,
-            name: capitalize(actuator.label).replaceAll('_', ' '),
-            state_topic: `eltako/${actuator.label}/get`,
-            command_topic: `eltako/${actuator.label}/set`,
-            payload_on: '1',
-            payload_off: '0',
-            state_on: '1',
-            state_off: '0',
-            optimistic: false,
-            qos: 0,
-            retain: true
-          }))
-        }
+        await provisionHomeAssistant()
         return h.response().code(204)
       }
     })
