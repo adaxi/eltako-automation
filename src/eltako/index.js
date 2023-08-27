@@ -45,7 +45,7 @@ export const plugin = {
           actuator.on = on
           server.log(['info'], `Actuator ${actuator.index} ${actuator.label.padEnd(20)} => ${on ? 'on ' : 'off'}`)
           if (mqttClient) {
-            server.log(['info'], `Publishing: eltako/${actuator.label}/get => ${on ? '1' : '0'}`)
+            server.log(['info'], `Publishing: eltako/${actuator.label}/get => ${on ? '1' : '0'} to home assistant`)
             await mqttClient.publishAsync(`eltako/${actuator.label}/get`, on ? '1' : '0')
           }
         }
@@ -71,7 +71,7 @@ export const plugin = {
           continue
         }
 
-        server.log(['info'], `Publishing discovery configuration of '${actuator.label}'`)
+        server.log(['info'], `Publishing discovery configuration of '${actuator.label} to home assistant'`)
 
         await mqttClient.publishAsync(`homeassistant/switch/${actuator.label}/config`, JSON.stringify({
           unique_id: actuator.label,
@@ -95,7 +95,7 @@ export const plugin = {
           continue
         }
 
-        server.log(['info'], `Publishing discovery configuration of '${actuator.label}'`)
+        server.log(['info'], `Publishing state of '${actuator.label}' to home assistant.`)
 
         await mqttClient.publishAsync(`eltako/${actuator.label}/get`, actuator.on ? '1' : '0')
       }
@@ -142,7 +142,13 @@ export const plugin = {
               const actuator = actuators.find(actuator => actuator.label === label)
               if (actuator) {
                 if ((actuator.on && payload === '0') || (!actuator.on && payload === '1')) {
+                  const actuatorDesiredState = !actuator.on
                   sendAction(actuator)
+                  setTimeout(() => {
+                    if (actuatorDesiredState !== actuator.on) {
+                      sendAction(actuator)
+                    }
+                  }, 150)
                 }
               }
             })
