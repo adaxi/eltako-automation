@@ -142,13 +142,7 @@ export const plugin = {
               const actuator = actuators.find(actuator => actuator.label === label)
               if (actuator) {
                 if ((actuator.on && payload === '0') || (!actuator.on && payload === '1')) {
-                  const actuatorDesiredState = !actuator.on
                   sendAction(actuator)
-                  setTimeout(() => {
-                    if (actuatorDesiredState !== actuator.on) {
-                      sendAction(actuator)
-                    }
-                  }, 500)
                 }
               }
             })
