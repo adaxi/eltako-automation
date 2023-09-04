@@ -65,6 +65,16 @@ export const plugin = {
       outgoingActionQueue.push(action)
     }
 
+
+    setInterval(async () => {
+      try {
+        await provisionHomeAssistant()
+        await publishStates()
+      } catch (err) {
+        server.log(['error'], 'Failed to provision home assistant:' + err)
+      }
+    }, 1 /* h */ * 60 /* m */ * 60 /* s */ * 1000 /* ms */)
+
     const provisionHomeAssistant = async () => {
       for (const actuator of actuators) {
         if (actuator.label === '_' || !actuator.label) {
