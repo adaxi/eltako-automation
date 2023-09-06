@@ -77,7 +77,7 @@ const actuators = [
   },
   {
     index: '0000000d',
-    name: 'garage',
+    label: 'garage',
     buttonAddress: '00001013',
     buttonKey: '30000000'
   },
