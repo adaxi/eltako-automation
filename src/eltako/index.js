@@ -23,18 +23,31 @@ export const plugin = {
     let mqttClient
 
     const actuators = structuredClone(options.actuators)
+    for (const actuator of actuators) {
+      actuator.action = buildAction(actuator.address, actuator.buttonKey)
+    }
+
+    setInterval(() => {
+      for (const actuator of actuators) {
+        if (actuator.on !== actuator.expected) {
+          outgoingActionQueue.push(actuator)
+        }
+      }
+    }, 500)
+
+
 
     const handleOutgoingQueue = async () => {
       if (outgoingActionQueue.length === 0) {
         return
       }
-      const actions = outgoingActionQueue.splice(0, 1)
-      for (const action of actions) {
-        server.log(['info'], `Writing action to serial port: ${action.toString('hex')}`)
+      const actuators = outgoingActionQueue.splice(0, 1)
+      for (const actuator of actuators) {
+        server.log(['info'], `Writing action to serial port: ${actuator.label} ${actuator.action.toString('hex')}`)
         try {
-          await new Promise((resolve, reject) => serialPort.write(action, (err) => err ? reject(err) : resolve()))
+          await new Promise((resolve, reject) => serialPort.write(actuator.action, (err) => err ? reject(err) : resolve()))
         } catch (err) {
-          server.log(['error'], `Failed to write action to port: ${action.toString('hex')}`)
+          server.log(['error'], `Failed to write action to port: ${actuator.label} ${actuator.action.toString('hex')}`)
         }
       }
     }
@@ -66,8 +79,7 @@ export const plugin = {
       if (!actuator.buttonKey) {
         throw Boom.badImplementation('Actuator not configured: missing buttonKey.')
       }
-      const action = buildAction(actuator.buttonAddress, actuator.buttonKey)
-      outgoingActionQueue.push(action)
+      outgoingActionQueue.push(actuator)
     }
 
 
@@ -161,6 +173,7 @@ export const plugin = {
               const actuator = actuators.find(actuator => actuator.label === label)
               if (actuator) {
                 if ((actuator.on && payload === '0') || (!actuator.on && payload === '1')) {
+                  actuator.expected = !actuator.on
                   sendAction(actuator)
                 }
               }
