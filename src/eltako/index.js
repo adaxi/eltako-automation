@@ -153,7 +153,7 @@ export const plugin = {
                   outgoingActionQueue.push(actuator)
                 }
               }
-            }, 500)
+            }, 5000)
 
             mqttClient.on('message', async (topic, message) => {
               console.log(topic, message.toString('utf-8'))
