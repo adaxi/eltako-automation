@@ -30,6 +30,7 @@ export const plugin = {
       }
       const actions = outgoingActionQueue.splice(0, 1)
       for (const action of actions) {
+        server.log(['info'], `writing action to serial port: ${action.toString()}`)
         serialPort.write(action)
       }
     }
@@ -135,6 +136,10 @@ export const plugin = {
 
             await provisionHomeAssistant()
             await publishStates()
+            setTimeout(async () => {
+              await provisionHomeAssistant()
+              await publishStates()
+            }, 3 * 60 * 1000)
 
             mqttClient.on('message', async (topic, message) => {
               console.log(topic, message.toString('utf-8'))
