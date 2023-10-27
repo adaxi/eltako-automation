@@ -27,16 +27,6 @@ export const plugin = {
       actuator.action = buildAction(actuator.address, actuator.buttonKey)
     }
 
-    setInterval(() => {
-      for (const actuator of actuators) {
-        if (actuator.on !== actuator.expected) {
-          outgoingActionQueue.push(actuator)
-        }
-      }
-    }, 500)
-
-
-
     const handleOutgoingQueue = async () => {
       if (outgoingActionQueue.length === 0) {
         return
@@ -156,6 +146,14 @@ export const plugin = {
               await provisionHomeAssistant()
               await publishStates()
             }, 3 * 60 * 1000)
+
+            setInterval(() => {
+              for (const actuator of actuators) {
+                if (Boolean(actuator.on) !== Boolean(actuator.expected)) {
+                  outgoingActionQueue.push(actuator)
+                }
+              }
+            }, 500)
 
             mqttClient.on('message', async (topic, message) => {
               console.log(topic, message.toString('utf-8'))
