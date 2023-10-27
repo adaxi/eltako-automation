@@ -24,14 +24,18 @@ export const plugin = {
 
     const actuators = structuredClone(options.actuators)
 
-    const handleOutgoingQueue = () => {
+    const handleOutgoingQueue = async () => {
       if (outgoingActionQueue.length === 0) {
         return
       }
       const actions = outgoingActionQueue.splice(0, 1)
       for (const action of actions) {
-        server.log(['info'], `writing action to serial port: ${action.toString()}`)
-        serialPort.write(action)
+        server.log(['info'], `Writing action to serial port: ${action.toString('hex')}`)
+        try {
+          await new Promise((resolve, reject) => serialPort.write(action, (err) => err ? reject(err) : resolve()))
+        } catch (err) {
+          server.log(['error'], `Failed to write action to port: ${action.toString('hex')}`)
+        }
       }
     }
 
@@ -122,9 +126,9 @@ export const plugin = {
           })
 
           const parser = serialPort.pipe(new DelimiterParser({ delimiter: SYNC, includeDelimiter: false }))
-          parser.on('data', (packet) => {
-            handleIncomingPacket(packet)
-            handleOutgoingQueue()
+          parser.on('data', async (packet) => {
+            await handleOutgoingQueue()
+            await handleIncomingPacket(packet)
           })
 
           try {
