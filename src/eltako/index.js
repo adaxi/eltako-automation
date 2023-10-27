@@ -35,7 +35,7 @@ export const plugin = {
       for (const actuator of actuators) {
         server.log(['info'], `Writing action to serial port: ${actuator.label} ${actuator.action.toString('hex')}`)
         try {
-          await new Promise((resolve, reject) => serialPort.write(actuator.action, (err) => err ? reject(err) : resolve()))
+          serialPort.write(actuator.action)
         } catch (err) {
           server.log(['error'], `Failed to write action to port: ${actuator.label} ${actuator.action.toString('hex')}`)
         }
@@ -129,8 +129,8 @@ export const plugin = {
 
           const parser = serialPort.pipe(new DelimiterParser({ delimiter: SYNC, includeDelimiter: false }))
           parser.on('data', async (packet) => {
-            await handleOutgoingQueue()
-            await handleIncomingPacket(packet)
+            handleOutgoingQueue()
+            handleIncomingPacket(packet)
           })
 
           try {
