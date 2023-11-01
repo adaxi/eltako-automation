@@ -3,159 +3,107 @@
 // https://roelofjanelsinga.com/articles/how-to-create-switch-dashboard-home-assistant/
 // https://cedalo.com/blog/mosquitto-docker-configuration-ultimate-guide/
 
-import { SerialPort } from 'serialport'
-import { DelimiterParser } from '@serialport/parser-delimiter'
-import Mqtt from 'mqtt'
 import Boom from '@hapi/boom'
+import { SerialPort } from 'serialport'
 
-const SYNC = Buffer.from([0xA5, 0x5A])
-
-function capitalize (s) {
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
+import { UsbParser, PACKET_PROCESSED, ACTUATOR_STATE } from './usb-parser.js'
+import { UsbSender } from './usb-sender.js'
+import { RadioSender } from './radio-sender.js'
+import { Actuator } from './actuator.js'
+import { HA_ONLINE, STATE_CHANGE_REQUEST, HaMqtt } from './ha-mqtt.js'
 
 export const plugin = {
   name: 'eltako',
   version: '1.0.0',
   register: async (server, options) => {
-    const outgoingActionQueue = []
+    let ha
     let serialPort
-    let mqttClient
+    let usbSender
+    let usbParser
+    const actuators = []
 
-    const actuators = structuredClone(options.actuators)
-
-    const handleOutgoingQueue = () => {
-      if (outgoingActionQueue.length === 0) {
-        return
-      }
-      const actions = outgoingActionQueue.splice(0, 1)
-      for (const action of actions) {
-        serialPort.write(action)
-      }
-    }
-
-    const handleIncomingPacket = async (packet) => {
+   setInterval(async () => {
       try {
-        assertChecksum(packet)
-        assertDataPacket(packet)
-        const { index, data } = decodePacket(packet)
-        const actuator = actuators.find(actuator => actuator.index === index)
-        const on = isOn(data)
-        if (actuator.on !== on) {
-          actuator.on = on
-          server.log(['info'], `Actuator ${actuator.index} ${actuator.label.padEnd(20)} => ${on ? 'on ' : 'off'}`)
-          if (mqttClient) {
-            server.log(['info'], `Publishing: eltako/${actuator.label}/get => ${on ? '1' : '0'} to home assistant`)
-            await mqttClient.publishAsync(`eltako/${actuator.label}/get`, on ? '1' : '0')
-          }
-        }
-      } catch (err) {
-        server.log(['trace', 'incoming-packet'], err.toString())
-      }
-    }
-
-    const sendAction = (actuator) => {
-      if (!actuator.buttonAddress) {
-        throw Boom.badImplementation('Actuator not configured: missing buttonAddress.')
-      }
-      if (!actuator.buttonKey) {
-        throw Boom.badImplementation('Actuator not configured: missing buttonKey.')
-      }
-      const action = buildAction(actuator.buttonAddress, actuator.buttonKey)
-      outgoingActionQueue.push(action)
-    }
-
-
-    setInterval(async () => {
-      try {
-        await provisionHomeAssistant()
-        await publishStates()
+        await ha?.provision(actuators)
+        await ha?.publishAll(actuators)
       } catch (err) {
         server.log(['error'], 'Failed to provision home assistant:' + err)
       }
     }, 1 /* h */ * 60 /* m */ * 60 /* s */ * 1000 /* ms */)
 
-    const provisionHomeAssistant = async () => {
-      for (const actuator of actuators) {
-        if (actuator.label === '_' || !actuator.label) {
-          continue
-        }
-
-        server.log(['info'], `Publishing discovery configuration of '${actuator.label} to home assistant'`)
-
-        await mqttClient.publishAsync(`homeassistant/switch/${actuator.label}/config`, JSON.stringify({
-          unique_id: actuator.label,
-          name: capitalize(actuator.label).replaceAll('_', ' '),
-          state_topic: `eltako/${actuator.label}/get`,
-          command_topic: `eltako/${actuator.label}/set`,
-          payload_on: '1',
-          payload_off: '0',
-          state_on: '1',
-          state_off: '0',
-          optimistic: false,
-          qos: 0,
-          retain: true
-        }))
-      }
-    }
-
-    const publishStates = async () => {
-      for (const actuator of actuators) {
-        if (actuator.label === '_' || !actuator.label) {
-          continue
-        }
-
-        server.log(['info'], `Publishing state of '${actuator.label}' to home assistant.`)
-
-        await mqttClient.publishAsync(`eltako/${actuator.label}/get`, actuator.on ? '1' : '0')
-      }
-    }
 
     server.ext([
       {
         type: 'onPostStart',
         method: async () => {
-          serialPort = new SerialPort({
-            path: options.tty,
-            baudRate: options.baudRate
-          })
-
-          const parser = serialPort.pipe(new DelimiterParser({ delimiter: SYNC, includeDelimiter: false }))
-          parser.on('data', (packet) => {
-            handleIncomingPacket(packet)
-            handleOutgoingQueue()
-          })
-
           try {
-            mqttClient = await Mqtt.connectAsync(options.mqttUrl)
+            ha = new HaMqtt(options.mqttUrl)
 
-            for (const actuator of actuators) {
-              await mqttClient.subscribeAsync(`eltako/${actuator.label}/set`)
-            }
+            serialPort = new SerialPort({
+              path: options.usb.tty,
+              baudRate: options.usb.baudRate
+            })
 
-            await provisionHomeAssistant()
-            await publishStates()
+            radioSender = new RadioSender({
+              path: options.radio.tty,
+              baudRate: options.radio.baudRate
+            })
 
-            mqttClient.on('message', async (topic, message) => {
-              console.log(topic, message.toString('utf-8'))
+            usbSender = new UsbSender(serialPort)
+            usbParser = new UsbParser(serialPort)
 
-              if (topic === 'homeassistant/status') {
-                if (message === 'online') {
-                  await provisionHomeAssistant()
-                  await publishStates()
-                }
-                return
-              }
+            await usbParser.init()
 
-              const payload = message.toString('utf-8')
-              const [, label] = topic.split('/')
-              const actuator = actuators.find(actuator => actuator.label === label)
+            usbParser.on(PACKET_PROCESSED, () => {
+              usbSender.processQueue()
+            })
+
+            usbParser.on(ACTUATOR_STATE, (index, state) => {
+              const actuator = actuators.find(a => a.index === index)
               if (actuator) {
-                if ((actuator.on && payload === '0') || (!actuator.on && payload === '1')) {
-                  sendAction(actuator)
-                }
+                actuator.state = state
               }
             })
+
+            const stateChangeHandler = async function () {
+              const actuator = this
+              try {
+                await ha.publish(actuator)
+              } catch (err) {
+                server.log(['error'], `Failed to publish state for '${actuator.label}' to '${actuator.state ? 'On' : 'Off'}' change on MQTT.`)
+              }
+            }
+
+            for (const actuatorCfg of structuredClone(options.actuators)) {
+              const {
+                index,
+                label,
+                usbCfg,
+                radioCfg
+              } = actuatorCfg
+              const actuator = new Actuator(index, label, { usbCfg, radioCfg, usbSender, radioSender })
+              actuator.on(ACTUATOR_STATE_CHANGE, stateChangeHandler)
+              actuators.push(actuator)
+            }
+
+            ha.on(STATE_CHANGE_REQUEST, async ({ label, state }) => {
+              const actuator = actuators.find(a => a.label === label)
+              if (!actuator) {
+                return
+              }
+              if (actuator.state !== state) {
+                actuator.toggle()
+              }
+            })
+
+            ha.on(HA_ONLINE, async () => {
+              await ha.provision(actuators)
+              await ha.publishAll(actuators)
+            })
+
+            await ha.subscribeAll(actuators)
+            await ha.provision(actuators)
+            await ha.publishAll(actuators)
           } catch (err) {
             console.log(err)
             server.log(['error'], `Failed to connect to mqtt broker ${options.mqttUrl}`)
@@ -172,22 +120,30 @@ export const plugin = {
               server.log(['error'], 'Failed to close serial port.')
             }
           }
-          if (mqttClient) {
+          if (ha) {
+            ha.removeAllListeners()
             try {
-              await mqttClient.endAsync()
+              await ha.stop()
             } catch (err) {
               server.log(['error'], 'Failed to mqtt client.')
             }
+          }
+          if (usbParser) {
+            usbParser.removeAllListeners()
+          }
+          if (radioSender) {
+            await radioSender.stop()
           }
         }
       }
     ])
 
+
     server.route({
       path: '/publish-home-assistant',
       method: 'POST',
       async handler (request, h) {
-        await provisionHomeAssistant()
+        await ha?.provision(actuators)
         return h.response().code(204)
       }
     })
@@ -195,7 +151,7 @@ export const plugin = {
     server.route({
       path: '/actuators',
       method: 'GET',
-      handler (request, h) {
+      async handler (request, h) {
         return actuators
       }
     })
@@ -203,13 +159,13 @@ export const plugin = {
     server.route({
       path: '/actuators/{label}/toggle',
       method: 'POST',
-      handler (request, h) {
+      async handler (request, h) {
         const { label } = request.params
         const actuator = actuators.find(actuator => actuator.label === label)
         if (!actuator) {
           throw Boom.notFound('No actuator found at that index')
         }
-        sendAction(actuator)
+        await actuator.toggle()
         return h.response().code(204)
       }
     })
@@ -217,14 +173,14 @@ export const plugin = {
     server.route({
       path: '/actuators/{label}/set/{state}',
       method: 'POST',
-      handler (request, h) {
+      async handler (request, h) {
         const { label, state } = request.params
         const actuator = actuators.find(actuator => actuator.label === label)
         if (!actuator) {
           throw Boom.notFound('No actuator found at that index')
         }
-        if ((actuator.on && state === '0') || (!actuator.on && state === '1')) {
-          sendAction(actuator)
+        if ((actuator.state && state === '0') || (!actuator.state && state === '1')) {
+          await actuator.toggle()
         }
         return h.response().code(204)
       }
@@ -232,53 +188,3 @@ export const plugin = {
   }
 }
 
-const assertChecksum = (packet) => {
-  const cs = packet.slice(0, 11).reduce((sum, byte) => sum + byte, 0) % 256
-  if (cs !== packet[11]) {
-    throw new Error(`Invalid checksum ${packet}`)
-  }
-}
-
-const assertDataPacket = (packet) => {
-  if (packet[0] !== 0x8B) {
-    throw new Error('Not a data packet')
-  }
-}
-
-const decodePacket = (packet) => {
-  return {
-    index: packet.slice(6, 10).toString('hex'),
-    data: packet.slice(2, 6).toString('hex')
-  }
-}
-
-const toFourByteBuffer = (data) => {
-  if (typeof data === 'string') {
-    data = Buffer.from(data, 'hex')
-  }
-  if (!Buffer.isBuffer(data) && typeof data !== 'number') {
-    data = Buffer.from(data.toString())
-  }
-  if (data.length >= 4) {
-    return data.slice(-4)
-  }
-  return Buffer.concat([Buffer.from([0x00, 0x00, 0x00, 0x00]), data], 4)
-}
-
-const buildAction = (address = Buffer.from([0x00, 0x00, 0x10, 0x23]), data = '\x30\x00\x00\x00') => {
-  const d = toFourByteBuffer(data)
-  return buildPacket(d, toFourByteBuffer(address), d[0] === 0x30 ? 0x30 : 0x20)
-}
-
-const buildPacket = (data = Buffer.from([0x00, 0x00, 0x00, 0x00]), address = Buffer.from([0x00, 0x00, 0x00, 0x00]), status = 0x30, org = 5, hseq = 0) => {
-  data = Buffer.concat([data, address, Buffer.from([status])])
-  const hlen = ((data.length + 2) | (hseq << 5)) & 0xFF
-  data = Buffer.concat([Buffer.from([hlen, org]), data])
-  const csum = data.reduce((sum, byte) => sum + byte, 0) % 256
-  const packet = Buffer.concat([SYNC, data, Buffer.from([csum])])
-  return packet
-}
-
-const isOn = (data) => {
-  return (data || '00').slice(0, 2) === '70'
-}

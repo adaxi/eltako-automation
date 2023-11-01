@@ -6,98 +6,178 @@ const actuators = [
   {
     index: '00000001',
     label: 'cuisine',
-    buttonAddress: '00001001',
-    buttonKey: '70000000'
+    usbCfg: {
+      buttonAddress: '00001001',
+      buttonKey: '70000000'
+    },
+    radioCfg: {
+      index: 1
+    }
   },
   {
     index: '00000002',
     label: 'hotte',
-    buttonAddress: '00001002',
-    buttonKey: '50000000'
+    usbCfg: {
+      buttonAddress: '00001002',
+      buttonKey: '50000000'
+    },
+    radioCfg: {
+      index: 2
+    }
   },
   {
     index: '00000003',
     label: 'salon',
-    buttonAddress: '00001003',
-    buttonKey: '30000000'
+    usbCfg: {
+      buttonAddress: '00001003',
+      buttonKey: '30000000'
+    },
+    radioCfg: {
+      index: 3
+    }
   },
   {
     index: '00000004',
     label: 'salle_a_manger',
-    buttonAddress: '00001004',
-    buttonKey: '10000000'
+    usbCfg: {
+      buttonAddress: '00001004',
+      buttonKey: '10000000'
+    },
+    radioCfg: {
+      index: 4
+    }
   },
   {
     index: '00000005',
     label: 'evier',
-    buttonAddress: '00001005',
-    buttonKey: '70000000'
+    usbCfg: {
+      buttonAddress: '00001005',
+      buttonKey: '70000000'
+    },
+    radioCfg: {
+      index: 5
+    }
   },
   {
     index: '00000006',
     label: 'porte_entree',
-    buttonAddress: '00001006',
-    buttonKey: '70000000'
+    usbCfg: {
+      buttonAddress: '00001006',
+      buttonKey: '70000000'
+    },
+    radioCfg: {
+      index: 6
+    }
   },
   {
     index: '00000007',
     label: 'hall_bas',
-    buttonAddress: '00001007',
-    buttonKey: '70000000'
+    usbCfg: {
+      buttonAddress: '00001007',
+      buttonKey: '70000000'
+    },
+    radioCfg: {
+      index: 7
+    }
   },
   {
     index: '00000008',
     label: 'wc',
-    buttonAddress: '00001008',
-    buttonKey: '70000000'
+    usbCfg: {
+      buttonAddress: '00001008',
+      buttonKey: '70000000'
+    },
+    radio: {
+      index: 8
+    }
   },
   {
     index: '00000009',
     label: 'bureau',
-    buttonAddress: '00001009',
-    buttonKey: '70000000'
+    usbCfg: {
+      buttonAddress: '00001009',
+      buttonKey: '70000000'
+    },
+    radioCfg: {
+      index: 9
+    }
   },
   {
     index: '0000000a',
     label: '_',
-    buttonAddress: '00001010',
-    buttonKey: '70000000'
+    usbCfg: {
+      buttonAddress: '00001010',
+      buttonKey: '70000000'
+    },
+    radioCfg: {
+      index: 10
+    }
   },
   {
     index: '0000000b',
     label: 'hall_haut',
-    buttonAddress: '00001011',
-    buttonKey: '70000000'
+    usbCfg: {
+      buttonAddress: '00001011',
+      buttonKey: '70000000'
+    },
+    radioCfg: {
+      index: 11
+    }
   },
   {
     index: '0000000c',
     label: 'chambre_amis',
-    buttonAddress: '00001012',
-    buttonKey: '70000000'
+    usbCfg: {
+      buttonAddress: '00001012',
+      buttonKey: '70000000'
+    },
+    radioCfg: {
+      index: 12
+    }
   },
   {
     index: '0000000d',
     label: 'garage',
-    buttonAddress: '00001013',
-    buttonKey: '30000000'
+    usbCfg: {
+      buttonAddress: '00001013',
+      buttonKey: '30000000'
+    },
+    radioCfg: {
+      index: 13
+    }
   },
   {
     index: '0000000e',
     label: 'local_technique',
-    buttonAddress: '00001014',
-    buttonKey: '10000000'
+    usbCfg: {
+      buttonAddress: '00001014',
+      buttonKey: '10000000'
+    },
+    radioCfg: {
+      index: 14
+    }
   },
   {
     index: '0000000f',
     label: 'chambre',
-    buttonAddress: '00001015',
-    buttonKey: '70000000'
+    usbCfg: {
+      buttonAddress: '00001015',
+      buttonKey: '70000000'
+    },
+    radioCfg: {
+      index: 15
+    }
   },
   {
     index: '00000010',
     label: 'salle_de_bain',
-    buttonAddress: '00001016',
-    buttonKey: '50000000'
+    usbCfg: {
+      buttonAddress: '00001016',
+      buttonKey: '50000000'
+    },
+    radioCfg: {
+      index: 16
+    }
   }
 ]
 
@@ -148,14 +228,27 @@ export default async function () {
         {
           plugin: await import('./src/eltako/index.js'),
           options: {
-            tty: {
-              $env: 'ELTAKO_TTY_PATH',
-              $default: '/dev/ttyUSB1'
+            usb: {
+              tty: {
+                $env: 'ELTAKO_USB_TTY_PATH',
+                $default: '/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_AB73IPJ7-if00-port0'
+              },
+              baudRate: {
+                $env: 'ELTAKO_USB_TTY_BAUD_RATE',
+                $default: 57600,
+                $coerce: 'number'
+              },
             },
-            baudRate: {
-              $env: 'ELTAKO_TTY_BAUD_RATE',
-              $default: 57600,
-              $coerce: 'number'
+            radio:{
+              tty: {
+                $env: 'ELTAKO_RADIO_TTY_PATH',
+                $default: '/dev/serial/by-id/usb-EnOcean_GmbH_USB_300_DE_EO76BRGH-if00-port0'
+              },
+              baudRate: {
+                $env: 'ELTAKO_RADIO_TTY_BAUD_RATE',
+                $default: 57600,
+                $coerce: 'number'
+              },
             },
             actuators: {
               $env: 'ELTAKO_ACTUATORS',
