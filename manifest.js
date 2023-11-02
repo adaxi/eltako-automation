@@ -87,7 +87,7 @@ const actuators = [
       buttonAddress: '00001008',
       buttonKey: '70000000'
     },
-    radio: {
+    radioCfg: {
       index: 8
     }
   },
@@ -231,7 +231,7 @@ export default async function () {
             usb: {
               tty: {
                 $env: 'ELTAKO_USB_TTY_PATH',
-                $default: '/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_AB73IPJ7-if00-port0'
+                $default: '/dev/ttyUSB0'
               },
               baudRate: {
                 $env: 'ELTAKO_USB_TTY_BAUD_RATE',
@@ -242,7 +242,7 @@ export default async function () {
             radio: {
               tty: {
                 $env: 'ELTAKO_RADIO_TTY_PATH',
-                $default: '/dev/serial/by-id/usb-EnOcean_GmbH_USB_300_DE_EO76BRGH-if00-port0'
+                $default: '/dev/ttyUSB1'
               },
               baudRate: {
                 $env: 'ELTAKO_RADIO_TTY_BAUD_RATE',
