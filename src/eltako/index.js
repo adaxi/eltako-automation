@@ -67,14 +67,18 @@ export const plugin = {
               usbSender.processQueue()
             })
 
-            usbParser.on(ACTUATOR_STATE, (index, state) => {
-              server.log(['trace', 'usb-parser'], `Actuator with index '${index}' was triggered to state ${state ? 'ON' : 'OFF'}`)
-              const actuator = actuators.find(a => a.index === index)
-              if (actuator) {
-                server.log(['trace', 'usb-parser'], `Updating actuator '${actuator.label}' was triggered to state ${state ? 'ON' : 'OFF'}`)
-                actuator.state = state
-              } else {
-                server.log(['trace', 'usb-parser'], `No actuator with index '${index}' was found.`)
+            usbParser.on(ACTUATOR_STATE, ({ index, state }) => {
+              try {
+                server.log(['trace', 'usb-parser'], `Actuator with index '${index}' was triggered to state ${state ? 'ON' : 'OFF'}`)
+                const actuator = actuators.find(a => a.index === index)
+                if (actuator) {
+                  server.log(['trace', 'usb-parser'], `Updating actuator '${actuator.label}' was triggered to state ${state ? 'ON' : 'OFF'}`)
+                  actuator.state = state
+                } else {
+                  server.log(['trace', 'usb-parser'], `No actuator with index '${index}' was found.`)
+                }
+              } catch (err) {
+                server.log(['error', 'failed to update actuator state'])
               }
             })
 
