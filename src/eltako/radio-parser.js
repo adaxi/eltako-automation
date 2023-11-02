@@ -1,13 +1,6 @@
-import Joi from 'joi'
 import Enocean from 'enocean-js'
 
 const { ESP3Parser, pretty } = Enocean
-
-const internals = {}
-internals.schemas = {}
-internals.schemas.button = Joi.object({
-  index: Joi.number().required()
-})
 
 export class RadioParser {
   constructor (port) {

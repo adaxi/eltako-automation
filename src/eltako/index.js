@@ -55,8 +55,9 @@ export const plugin = {
 
             radioSender = new RadioSender(radioSerialPort)
             await radioSender.init()
-            radioParser = new RadioParser(radioSerialPort)
-            await radioParser.init()
+
+            // radioParser = new RadioParser(radioSerialPort)
+            // await radioParser.init()
 
             usbSender = new UsbSender(usbSerialPort)
             usbParser = new UsbParser(usbSerialPort)
@@ -127,7 +128,8 @@ export const plugin = {
             server.log(['info'], `Published ${actuators.length} state into home assistant`)
           } catch (err) {
             console.log(err)
-            server.log(['error'], `Failed to connect to mqtt broker ${options.mqttUrl}`)
+            server.log(['error'], `Failed to startup. Exiting.`)
+            process.exit(1)
           }
         }
       },
