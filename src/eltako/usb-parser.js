@@ -53,10 +53,10 @@ export class UsbParser extends EventEmitter {
 
   async handleIncomingPacket (packet) {
     try {
-      console.log(['trace', 'incoming-packet'], 'Got packet ', packet.toString('hex'))
       assertChecksum(packet)
       assertDataPacket(packet)
       const { index, data } = decodePacket(packet)
+      console.log('Got packet for index', index, 'data', data)
       this.emit(ACTUATOR_STATE, { index, state: isOn(data) })
     } catch (err) {
       console.log(['trace', 'incoming-packet'], err.toString())
