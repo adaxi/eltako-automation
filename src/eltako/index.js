@@ -82,8 +82,9 @@ export const plugin = {
               const actuator = this
               try {
                 await ha.publish(actuator)
+                server.log(['error'], `Published actuator '${actuator.label}' to '${actuator.state ? 'ON' : 'OFF'}' change on MQTT.`)
               } catch (err) {
-                server.log(['error'], `Failed to publish state for '${actuator.label}' to '${actuator.state ? 'On' : 'Off'}' change on MQTT.`)
+                server.log(['error'], `Failed to publish state for '${actuator.label}' to '${actuator.state ? 'ON' : 'OFF'}' change on MQTT.`)
               }
             }
 
