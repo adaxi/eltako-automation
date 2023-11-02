@@ -9,7 +9,8 @@ import { SerialPort } from 'serialport'
 import { UsbParser, PACKET_PROCESSED, ACTUATOR_STATE } from './usb-parser.js'
 import { UsbSender } from './usb-sender.js'
 import { RadioSender } from './radio-sender.js'
-import { Actuator } from './actuator.js'
+import { RadioParser } from './radio-parser.js'
+import { Actuator, ACTUATOR_STATE_CHANGE } from './actuator.js'
 import { HA_ONLINE, STATE_CHANGE_REQUEST, HaMqtt } from './ha-mqtt.js'
 
 export const plugin = {
@@ -17,12 +18,15 @@ export const plugin = {
   version: '1.0.0',
   register: async (server, options) => {
     let ha
-    let serialPort
+    let usbSerialPort
+    let radioSerialPort
     let usbSender
     let usbParser
+    let radioSender
+    let radioParser
     const actuators = []
 
-   setInterval(async () => {
+    setInterval(async () => {
       try {
         await ha?.provision(actuators)
         await ha?.publishAll(actuators)
@@ -31,26 +35,31 @@ export const plugin = {
       }
     }, 1 /* h */ * 60 /* m */ * 60 /* s */ * 1000 /* ms */)
 
-
     server.ext([
       {
         type: 'onPostStart',
         method: async () => {
           try {
             ha = new HaMqtt(options.mqttUrl)
+            await ha.init()
 
-            serialPort = new SerialPort({
+            usbSerialPort = new SerialPort({
               path: options.usb.tty,
               baudRate: options.usb.baudRate
             })
 
-            radioSender = new RadioSender({
+            radioSerialPort = new SerialPort({
               path: options.radio.tty,
               baudRate: options.radio.baudRate
             })
 
-            usbSender = new UsbSender(serialPort)
-            usbParser = new UsbParser(serialPort)
+            radioSender = new RadioSender(radioSerialPort)
+            radioSender.init()
+            radioParser = new RadioParser(radioSerialPort)
+            radioParser.init()
+
+            usbSender = new UsbSender(usbSerialPort)
+            usbParser = new UsbParser(usbSerialPort)
 
             await usbParser.init()
 
@@ -102,8 +111,11 @@ export const plugin = {
             })
 
             await ha.subscribeAll(actuators)
+            server.log(['info'], `Subscribed to ${actuators.length} actuators`)
             await ha.provision(actuators)
+            server.log(['info'], `Provisioned ${actuators.length} actuators into home assistant`)
             await ha.publishAll(actuators)
+            server.log(['info'], `Published ${actuators.length} state into home assistant`)
           } catch (err) {
             console.log(err)
             server.log(['error'], `Failed to connect to mqtt broker ${options.mqttUrl}`)
@@ -113,9 +125,16 @@ export const plugin = {
       {
         type: 'onPreStop',
         method: async () => {
-          if (serialPort) {
+          if (usbSerialPort) {
             try {
-              await new Promise((resolve, reject) => serialPort.close((err) => err ? reject(err) : resolve()))
+              await new Promise((resolve, reject) => usbSerialPort.close((err) => err ? reject(err) : resolve()))
+            } catch (err) {
+              server.log(['error'], 'Failed to close serial port.')
+            }
+          }
+          if (radioSerialPort) {
+            try {
+              await new Promise((resolve, reject) => radioSerialPort.close((err) => err ? reject(err) : resolve()))
             } catch (err) {
               server.log(['error'], 'Failed to close serial port.')
             }
@@ -131,13 +150,9 @@ export const plugin = {
           if (usbParser) {
             usbParser.removeAllListeners()
           }
-          if (radioSender) {
-            await radioSender.stop()
-          }
         }
       }
     ])
-
 
     server.route({
       path: '/publish-home-assistant',
@@ -187,4 +202,3 @@ export const plugin = {
     })
   }
 }
-

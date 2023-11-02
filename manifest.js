@@ -237,9 +237,9 @@ export default async function () {
                 $env: 'ELTAKO_USB_TTY_BAUD_RATE',
                 $default: 57600,
                 $coerce: 'number'
-              },
+              }
             },
-            radio:{
+            radio: {
               tty: {
                 $env: 'ELTAKO_RADIO_TTY_PATH',
                 $default: '/dev/serial/by-id/usb-EnOcean_GmbH_USB_300_DE_EO76BRGH-if00-port0'
@@ -248,7 +248,7 @@ export default async function () {
                 $env: 'ELTAKO_RADIO_TTY_BAUD_RATE',
                 $default: 57600,
                 $coerce: 'number'
-              },
+              }
             },
             actuators: {
               $env: 'ELTAKO_ACTUATORS',

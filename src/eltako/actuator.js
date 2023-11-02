@@ -1,5 +1,3 @@
-
-
 import EventEmitter from 'node:events'
 
 /**
@@ -18,9 +16,10 @@ function capitalize (s) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-export class Actuator extends EventEmitter{
+export class Actuator extends EventEmitter {
   #state = false
   constructor (index, label, senders) {
+    super()
     const { usbSender, usbCfg, radioSender, radioCfg } = senders || {}
     this.index = index
     this.label = label

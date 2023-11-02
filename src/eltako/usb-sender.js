@@ -1,5 +1,6 @@
-
 import Joi from 'joi'
+
+const SYNC = Buffer.from([0xA5, 0x5A])
 
 const internals = {}
 internals.schemas = {}
@@ -20,7 +21,6 @@ const toFourByteBuffer = (data) => {
   }
   return Buffer.concat([Buffer.from([0x00, 0x00, 0x00, 0x00]), data], 4)
 }
-
 
 const buildAction = (address = Buffer.from([0x00, 0x00, 0x10, 0x23]), data = '\x30\x00\x00\x00') => {
   const d = toFourByteBuffer(data)
@@ -44,9 +44,9 @@ export class UsbSender {
   }
 
   processQueue () {
-    const action = outgoingActionQueue.splice(0, 1)
+    const action = this.#queue.splice(0, 1)
     if (action) {
-      serialPort.write(action)
+      this.port.write(action)
     }
   }
 
@@ -57,5 +57,3 @@ export class UsbSender {
     this.#queue.push(action)
   }
 }
-
-

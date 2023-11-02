@@ -5,14 +5,13 @@ export const HA_ONLINE = 'hamqtt.ha-online'
 export const STATE_CHANGE_REQUEST = 'hamqtt.state-change-request'
 
 export class HaMqtt extends EventEmitter {
-
   constructor (mqttUrl) {
+    super()
     this.mqttUrl = mqttUrl
-    this.mqttClient
   }
 
-  async init() {
-    this.mqttClient = await Mqtt.connectAsync(options.mqttUrl)
+  async init () {
+    this.mqttClient = await Mqtt.connectAsync(this.mqttUrl)
     this.mqttClient.on('message', async (topic, message) => {
       console.log(topic, message.toString('utf-8'))
 
@@ -25,14 +24,13 @@ export class HaMqtt extends EventEmitter {
       }
 
       const [, label] = topic.split('/')
-      this.emit(STATE_CHANGE_REQUEST, { label, state: payload === '1'})
+      this.emit(STATE_CHANGE_REQUEST, { label, state: payload === '1' })
     })
   }
 
   async stop () {
     await this.mqttClient.endAsync()
   }
-
 
   async publish (actuator) {
     await this.mqttClient.publishAsync(`eltako/${actuator.label}/get`, actuator.state ? '1' : '0')
@@ -44,11 +42,11 @@ export class HaMqtt extends EventEmitter {
     }
   }
 
-  async subscribe (actuator)  {
+  async subscribe (actuator) {
     await this.mqttClient.subscribeAsync(`eltako/${actuator.label}/set`)
   }
 
-  async subscribe (actuators) {
+  async subscribeAll (actuators) {
     for (const actuator of actuators) {
       await this.subscribe(actuator)
     }

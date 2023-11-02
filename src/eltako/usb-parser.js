@@ -1,4 +1,3 @@
-
 import Joi from 'joi'
 import EventEmitter from 'node:events'
 import { DelimiterParser } from '@serialport/parser-delimiter'
@@ -34,9 +33,13 @@ const decodePacket = (packet) => {
   }
 }
 
-export class UsbParser extends EventEmitter {
+const isOn = (data) => {
+  return (data || '00').slice(0, 2) === '70'
+}
 
+export class UsbParser extends EventEmitter {
   constructor (port) {
+    super()
     this.port = port
   }
 
@@ -58,7 +61,4 @@ export class UsbParser extends EventEmitter {
       console.log(['trace', 'incoming-packet'], err.toString())
     }
   }
-
 }
-
-
