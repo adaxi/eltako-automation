@@ -18,9 +18,9 @@ function capitalize (s) {
 
 export class Actuator extends EventEmitter {
   #state = false
-  constructor (index, label, senders) {
+  constructor (index, label, options) {
     super()
-    const { usbSender, usbCfg, radioSender, radioCfg } = senders || {}
+    const { usbSender, usbCfg, radioSender, radioCfg } = options || {}
     this.index = index
     this.label = label
     this.usbSender = usbSender
