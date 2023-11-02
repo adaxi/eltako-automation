@@ -78,7 +78,7 @@ export const plugin = {
                   server.log(['trace', 'usb-parser'], `No actuator with index '${index}' was found.`)
                 }
               } catch (err) {
-                server.log(['error', 'failed to update actuator state'])
+                server.log(['error'], `Failed to update actuator state: ${err}` )
               }
             })
 
