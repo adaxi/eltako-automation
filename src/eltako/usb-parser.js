@@ -53,6 +53,7 @@ export class UsbParser extends EventEmitter {
 
   async handleIncomingPacket (packet) {
     try {
+      console.log(['trace', 'incoming-packet'], 'Got packet ', packet.toString('hex'))
       assertChecksum(packet)
       assertDataPacket(packet)
       const { index, data } = decodePacket(packet)

@@ -54,9 +54,9 @@ export const plugin = {
             })
 
             radioSender = new RadioSender(radioSerialPort)
-            radioSender.init()
+            await radioSender.init()
             radioParser = new RadioParser(radioSerialPort)
-            radioParser.init()
+            await radioParser.init()
 
             usbSender = new UsbSender(usbSerialPort)
             usbParser = new UsbParser(usbSerialPort)
