@@ -117,15 +117,12 @@ export const plugin = {
 
             ha.on(HA_ONLINE, async () => {
               await ha.provision(actuators)
-              await ha.publishAll(actuators)
             })
 
             await ha.subscribeAll(actuators)
             server.log(['info'], `Subscribed to ${actuators.length} actuators`)
             await ha.provision(actuators)
             server.log(['info'], `Provisioned ${actuators.length} actuators into home assistant`)
-            await ha.publishAll(actuators)
-            server.log(['info'], `Published ${actuators.length} state into home assistant`)
           } catch (err) {
             console.log(err)
             server.log(['error'], `Failed to startup. Exiting.`)

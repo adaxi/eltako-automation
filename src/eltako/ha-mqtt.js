@@ -54,7 +54,9 @@ export class HaMqtt extends EventEmitter {
 
   async provision (actuators) {
     for (const actuator of actuators) {
-      await this.mqttClient.publishAsync(`homeassistant/switch/${actuator.label}/config`, JSON.stringify(actuator.haConfig()))
+      await this.mqttClient.publishAsync(`homeassistant/light/${actuator.label}/config`, JSON.stringify(actuator.haConfig()))
     }
+    await new Promise(resolve => setTimeout(resolve, 5000))
+    await this.publishAll()
   }
 }
